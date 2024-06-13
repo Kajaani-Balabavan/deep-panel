@@ -1,0 +1,14 @@
+pandas
+prophet
+ipykernel
+seaborn
+scipy
+autoviz
+plotly
+catboost
+openpyxl
+lightgbm
+mlflow
+dagshub
+hyperopt
+tsfresh
