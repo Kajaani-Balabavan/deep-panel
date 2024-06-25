@@ -21,12 +21,12 @@ model_name = "Bi-LSTM"
 # Load CSV data
 
 # Transport Domain
-# file_path = r'..\data\processed\Passenger_Traffic_Los_Angeles.csv'
-# dataset = 'Passenger_Traffic_Los_Angeles'
+file_path = r'..\data\processed\Passenger_Traffic_Los_Angeles.csv'
+dataset = 'Passenger_Traffic_Los_Angeles'
 
 # Environmental Domain
-file_path = r'..\data\processed\average-monthly-surface-temperature.csv'
-dataset = 'Average surface temperature_SAARC'
+# file_path = r'..\data\processed\average-monthly-surface-temperature.csv'
+# dataset = 'Average surface temperature_SAARC'
 
 # Economic Domain
 # file_path = r'..\data\processed\exchange_rate.csv'
@@ -35,7 +35,7 @@ dataset = 'Average surface temperature_SAARC'
 data = pd.read_csv(file_path)
 
 # for surface temperature data
-data= data[['Entity','Day','Average surface temperature']]
+# data= data[['Entity','Day','Average surface temperature']]
 
 # Rename columns
 data.columns = ['Entity','Date', 'Value']
