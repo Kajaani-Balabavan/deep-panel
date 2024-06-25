@@ -17,24 +17,28 @@ experiment_name = "Base Experiments"
 mlflow.set_experiment(experiment_name)
 model_name = "Bi-GRU"
 
+
 # Load CSV data
 
 # Transport Domain
-# file_path = '..\\data\\processed\\Passenger_Traffic_Los_Angeles.csv'
-# dataset = 'Passenger_Traffic_Los_Angeles'
+file_path = '..\\data\\processed\\Passenger_Traffic_Los_Angeles.csv'
+dataset = 'Passenger_Traffic_Los_Angeles'
 
 # Environmental Domain
 # file_path = '..\\data\\processed\\AirQuality_Italy.csv'
 # dataset = 'AirQuality_Italy'
-
+# file_path = '..\\data\\processed\\average-monthly-surface-temperature.csv'
+# dataset = 'average-monthly-surface-temperature'
 
 # Economic Domain
-file_path = '..\\data\\processed\\Economic Dataset-Foregin Exchange Rate per USD -missing value handled.csv'
-dataset = 'Exchange Rate per USD'
+# file_path = '..\\data\\processed\\exchange_rate.csv'
+# dataset = 'exchange_rate'
 
 data = pd.read_csv(file_path)
-# uncomment for environmental data domain 
+# for Air-Quality dataset(Environmental domain)
 # data=data[['Sensor','DateTime','Reading']]
+# for surface temperature dataset
+# data=data[['Entity','Day','Average surface temperature']]
 
 # Rename columns
 data.columns = ['Entity','Date', 'Value']
