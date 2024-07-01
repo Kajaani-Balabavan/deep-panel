@@ -490,7 +490,8 @@ with mlflow.start_run():
         if patience_counter >= patience:
             print('Early stopping')
             break
-
+        
+        
     # Load the best model
     model.load_state_dict(torch.load('best_model.pth'))
 
