@@ -5,34 +5,37 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from sklearn.preprocessing import MinMaxScaler, LabelEncoder
+from sklearn.preprocessing import MinMaxScaler, LabelEncoder, RobustScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error, mean_absolute_percentage_error
 from torch.utils.data import DataLoader, TensorDataset
 import matplotlib.pyplot as plt
 import dagshub
 import mlflow.pyfunc
+from scipy.stats import zscore
 
 dagshub.init(repo_owner='Kajaani-Balabavan', repo_name='deep-panel', mlflow=True)
-experiment_name = "Base Experiments"
+experiment_name = "Base Models"
 mlflow.set_experiment(experiment_name)
 model_name = "Bi-LSTM"
 
 # Load CSV data
 
 # Transport Domain
-# file_path = '..\data\processed\Passenger_Traffic_Los_Angeles.csv'
-# dataset = 'Passenger_Traffic_Los_Angeles'
+file_path = r'..\data\processed\Passenger_Traffic_Los_Angeles.csv'
+dataset = 'Passenger_Traffic_Los_Angeles'
 
 # Environmental Domain
-# file_path = '..\data\processed\AirQuality_Italy.csv'
-# dataset = 'AirQuality_Italy'
-# data=data[['Sensor','DateTime','Reading']]
+# file_path = r'..\data\processed\average-monthly-surface-temperature.csv'
+# dataset = 'Average surface temperature_SAARC'
 
 # Economic Domain
-file_path = '..\data\processed\Economic Dataset-Foregin Exchange Rate per USD -missing value handled.csv'
-dataset = 'Exchange Rate per USD'
+# file_path = r'..\data\processed\exchange_rate.csv'
+# dataset = 'Exchange Rate per USD'
 
 data = pd.read_csv(file_path)
+
+# for surface temperature data
+# data= data[['Entity','Day','Average surface temperature']]
 
 # Rename columns
 data.columns = ['Entity','Date', 'Value']
@@ -41,14 +44,18 @@ print(data.head())
 # Convert 'Date' to datetime and set as index
 data['Date'] = pd.to_datetime(data['Date'])
 data = data.set_index('Date')
-data['Value'] = pd.to_numeric(data['Value'], errors='coerce').fillna(method='ffill')
+
+# # Handle outliers using Z-score method
+# threshold = 3  # Adjust the threshold as needed
+# z_scores = np.abs(zscore(data['Value']))
+# data = data[(z_scores < threshold)]
 
 # Encode entity IDs
 entity_encoder = LabelEncoder()
 data['Entity'] = entity_encoder.fit_transform(data['Entity'])
 
-# Normalize the data
-scaler = MinMaxScaler()
+# Normalize the data using RobustScaler
+scaler = MinMaxScaler()  # Use RobustScaler instead of MinMaxScaler
 data['Value'] = scaler.fit_transform(data[['Value']])
 
 # Split data into train and validation sets by entities
@@ -147,6 +154,9 @@ with mlflow.start_run():
     mlflow.log_param("seq_length", seq_length)
     mlflow.log_param("dataset", dataset)
     mlflow.log_param("model_name", model_name)
+    mlflow.log_param("outlier_handling", "Z-score")
+    # mlflow.log_param("outlier_threshold", threshold)
+    mlflow.log_param("scaling_method", "RobustScaler")
 
     # Log model parameters
     mlflow.pytorch.log_model(model, "model")
@@ -204,8 +214,10 @@ with mlflow.start_run():
         with torch.no_grad():
             for X_batch, y_batch, e_batch in loader:
                 y_pred = model(X_batch, e_batch)
-                actuals.extend(y_batch.numpy().flatten())
-                predictions.extend(y_pred.numpy().flatten())
+                # Rescale y_batch values back to the original range
+                actuals.extend(scaler.inverse_transform(y_batch.numpy().reshape(-1, 1)).flatten())
+                # Rescale predictions back to the original range
+                predictions.extend(scaler.inverse_transform(y_pred.numpy().reshape(-1, 1)).flatten())
         return np.array(actuals), np.array(predictions)
 
     train_actuals, train_predictions = evaluate(model, train_loader)
@@ -277,4 +289,3 @@ with mlflow.start_run():
 
     # Log the scaler as a custom Python model
     mlflow.pyfunc.log_model("scaler", python_model=scaler_wrapper)
-
