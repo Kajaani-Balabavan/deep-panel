@@ -290,13 +290,13 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from sklearn.preprocessing import MinMaxScaler, LabelEncoder, RobustScaler
+from sklearn.preprocessing import MinMaxScaler, LabelEncoder
 from sklearn.metrics import mean_absolute_error, mean_squared_error, mean_absolute_percentage_error
 from torch.utils.data import DataLoader, TensorDataset
 import matplotlib.pyplot as plt
 import dagshub
 import mlflow.pyfunc
-from scipy.stats import zscore
+# from scipy.stats import zscore
 
 dagshub.init(repo_owner='Kajaani-Balabavan', repo_name='deep-panel', mlflow=True)
 experiment_name = "Base Models"
