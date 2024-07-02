@@ -30,7 +30,7 @@ def calculate_moving_average(df, column, window):
 dagshub.init(repo_owner='Kajaani-Balabavan', repo_name='deep-panel', mlflow=True)
 experiment_name = "Base Models"
 mlflow.set_experiment(experiment_name)
-model_name = "Fixed Effects"
+model_name = "Pooled OLS"
 
 # Load CSV data
 # file_path = r'..\data\processed\Passenger_Traffic_Los_Angeles.csv'
@@ -117,14 +117,12 @@ plt.close()
 with mlflow.start_run():
     mlflow.log_artifact('actual_values_per_entity.png')
 
-# Train Fixed Effects Model 
-formula = 'Value ~ Year + Month + Q("Day of Week") + Q("Week of Year") + Quarter + Valuelag1 + Valuelag7 + Valuelag1ma4 + C(Entity)'
-
+# Train Pooled OLS Model
+formula = 'Value ~ Year + Month + Q("Day of Week") + Q("Week of Year") + Quarter + Valuelag1 + Valuelag7 + Valuelag1ma4'
 
 # Affrica GDP
-# formula = 'Value ~Year + Valuelag1 + GNI+PPP+ C(Entity)'
+# formula = 'Value ~Year + Valuelag1 + GNI+PPP'
 model = smf.ols(formula, train_data).fit()
-
 
 # Start MLflow tracking
 with mlflow.start_run():
@@ -199,7 +197,7 @@ with mlflow.start_run():
     mlflow.log_artifact('val_predictions_vs_actuals.png')
 
     # Log the model
-    model.save('fixed_effects_model.pkl')
-    mlflow.log_artifact('fixed_effects_model.pkl')
+    model.save('pooled_ols_model.pkl')
+    mlflow.log_artifact('pooled_ols_model.pkl')
 
-print("Fixed Effects Model training and evaluation complete.")
+print("Pooled OLS Model training and evaluation complete.")

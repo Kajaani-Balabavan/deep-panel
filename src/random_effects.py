@@ -30,7 +30,7 @@ def calculate_moving_average(df, column, window):
 dagshub.init(repo_owner='Kajaani-Balabavan', repo_name='deep-panel', mlflow=True)
 experiment_name = "Base Models"
 mlflow.set_experiment(experiment_name)
-model_name = "Fixed Effects"
+model_name = "Random Effects"
 
 # Load CSV data
 # file_path = r'..\data\processed\Passenger_Traffic_Los_Angeles.csv'
@@ -49,31 +49,30 @@ model_name = "Fixed Effects"
 # dataset = 'Covid Deaths'
 
 # Covid_confirmed
-file_path = r'..\data\Base_Paper\Predictions for COVID-19 with deep learning models of LSTM, GRU, and Bi-LSTM\confirmed_final.csv'
-dataset = 'Covid Confirmed'
+# file_path = r'..\data\Base_Paper\Predictions for COVID-19 with deep learning models of LSTM, GRU, and Bi-LSTM\confirmed_final.csv'
+# dataset = 'Covid Confirmed'
 
 # Covid_recovered
 # file_path = r'..\data\Base_Paper\Predictions for COVID-19 with deep learning models of LSTM, GRU, and Bi-LSTM\recovered_final.csv'
 # dataset = 'Covid Recovered'
 
 # Africa GDP
-# file_path = r'..\data\Base_Paper\African GDP\Final_African_GDP.csv'
-# dataset = 'GDP Africa'
+file_path = r'..\data\Base_Paper\African GDP\Final_African_GDP.csv'
+dataset = 'GDP Africa'
 
 data = pd.read_csv(file_path)
 
 # Rename columns
-data.columns = ['Entity','Date', 'Value']
-
+# data.columns = ['Entity','Date', 'Value']
 # Affrica GDP
-# data.columns = ['Entity','Date', 'Value','GNI','PPP']
+data.columns = ['Entity','Date', 'Value','GNI','PPP']
 print(data.head())
 
 # Convert 'Date' to datetime and set as index
 data['Date'] = pd.to_datetime(data['Date'])
 
 data = extract_time_features(data, 'Date')
-data = create_lags(data, 'Value', lags=[1, 7])
+data = create_lags(data, 'Value', lags=[1, 12])
 data = calculate_moving_average(data, 'Valuelag1', window=4)
 data = data.set_index('Date')
 
@@ -117,14 +116,12 @@ plt.close()
 with mlflow.start_run():
     mlflow.log_artifact('actual_values_per_entity.png')
 
-# Train Fixed Effects Model 
-formula = 'Value ~ Year + Month + Q("Day of Week") + Q("Week of Year") + Quarter + Valuelag1 + Valuelag7 + Valuelag1ma4 + C(Entity)'
-
-
+# Train Random Effects Model
+# formula = 'Value ~ Year + Month + Q("Day of Week") + Q("Week of Year") + Quarter + Valuelag1 + Valuelag12 + Valuelag1ma4'
 # Affrica GDP
-# formula = 'Value ~Year + Valuelag1 + GNI+PPP+ C(Entity)'
-model = smf.ols(formula, train_data).fit()
+formula = 'Value ~Year + Valuelag1 + GNI+PPP'
 
+model = smf.mixedlm(formula, train_data, groups=train_data["Entity"]).fit()
 
 # Start MLflow tracking
 with mlflow.start_run():
@@ -199,7 +196,7 @@ with mlflow.start_run():
     mlflow.log_artifact('val_predictions_vs_actuals.png')
 
     # Log the model
-    model.save('fixed_effects_model.pkl')
-    mlflow.log_artifact('fixed_effects_model.pkl')
+    model.save('random_effects_model.pkl')
+    mlflow.log_artifact('random_effects_model.pkl')
 
-print("Fixed Effects Model training and evaluation complete.")
+print("Random Effects Model training and evaluation complete.")
