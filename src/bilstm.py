@@ -6,12 +6,31 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from sklearn.preprocessing import MinMaxScaler, LabelEncoder, RobustScaler
-from sklearn.metrics import mean_absolute_error, mean_squared_error, mean_absolute_percentage_error
+from sklearn.metrics import mean_absolute_error, mean_squared_error, mean_absolute_percentage_error,r2_score
 from torch.utils.data import DataLoader, TensorDataset
 import matplotlib.pyplot as plt
 import dagshub
 import mlflow.pyfunc
 from scipy.stats import zscore
+
+def extract_time_features(df, date_column):
+    df[date_column] = pd.to_datetime(df[date_column])
+    df['Year'] = df[date_column].dt.year
+    df['Month'] = df[date_column].dt.month
+    df['Day'] = df[date_column].dt.day
+    df['Day of Week'] = df[date_column].dt.dayofweek
+    df['Week of Year'] = df[date_column].dt.isocalendar().week.astype(np.int32)
+    df['Quarter'] = df[date_column].dt.quarter
+    return df
+
+def create_lags(df, column, lags):
+    for lag in lags:
+        df[f'{column}_lag_{lag}'] = df[column].shift(lag).fillna(method='bfill')
+    return df
+
+def calculate_moving_average(df, column, window):
+    df[f'{column}_ma_{window}'] = df[column].rolling(window=window).mean().fillna(method='bfill')
+    return df
 
 dagshub.init(repo_owner='Kajaani-Balabavan', repo_name='deep-panel', mlflow=True)
 experiment_name = "Base Models"
@@ -21,12 +40,12 @@ model_name = "Bi-LSTM"
 # Load CSV data
 
 # Transport Domain
-file_path = r'..\data\processed\Passenger_Traffic_Los_Angeles.csv'
-dataset = 'Passenger_Traffic_Los_Angeles'
+# file_path = r'..\data\processed\Passenger_Traffic_Los_Angeles.csv'
+# dataset = 'Passenger_Traffic_Los_Angeles'
 
 # Environmental Domain
-# file_path = r'..\data\processed\average-monthly-surface-temperature.csv'
-# dataset = 'Average surface temperature_SAARC'
+file_path = r'..\data\processed\average-monthly-surface-temperature.csv'
+dataset = 'Average surface temperature_SAARC'
 
 # Economic Domain
 # file_path = r'..\data\processed\exchange_rate.csv'
@@ -35,7 +54,7 @@ dataset = 'Passenger_Traffic_Los_Angeles'
 data = pd.read_csv(file_path)
 
 # for surface temperature data
-# data= data[['Entity','Day','Average surface temperature']]
+data= data[['Entity','Day','Average surface temperature']]
 
 # Rename columns
 data.columns = ['Entity','Date', 'Value']
@@ -43,28 +62,65 @@ print(data.head())
 
 # Convert 'Date' to datetime and set as index
 data['Date'] = pd.to_datetime(data['Date'])
+
+data = extract_time_features(data, 'Date')
+data = create_lags(data, 'Value', lags=[1, 12])  # fill with lags you want. 1 is compulsory, you can put as many lags you want in the list. forexample, if daily data you may want lag 7
+data = calculate_moving_average(data, 'Value_lag_1', window=4) #set the window value to no of data points you want to take average of
 data = data.set_index('Date')
 
-# # Handle outliers using Z-score method
-# threshold = 3  # Adjust the threshold as needed
-# z_scores = np.abs(zscore(data['Value']))
-# data = data[(z_scores < threshold)]
+print(data.head())
+print(data.columns)
+print(data.dtypes)
 
 # Encode entity IDs
 entity_encoder = LabelEncoder()
 data['Entity'] = entity_encoder.fit_transform(data['Entity'])
 
-# Normalize the data using RobustScaler
-scaler = MinMaxScaler()  # Use RobustScaler instead of MinMaxScaler
+# Normalize the data using Minmaxscaler
+scaler = MinMaxScaler()  # Use MinMaxScaler
 data['Value'] = scaler.fit_transform(data[['Value']])
 
-# Split data into train and validation sets by entities
-entities = data['Entity'].unique()
-train_entities = entities[:int(0.8 * len(entities))]
-val_entities = entities[int(0.8 * len(entities)):]
+entities= data['Entity'].unique()
+train_data=pd.DataFrame()
+val_data=pd.DataFrame()
+for entity in entities:
+    entity_data= data[data['Entity']==entity]
+    split_index = int(0.8* len(entity_data))
+    entity_train_data=entity_data[:split_index]
+    train_data=train_data._append(entity_train_data)
+    entity_val_data=entity_data[split_index:]
+    val_data=val_data._append(entity_val_data)
+print("train data \n", train_data.head())
+print(train_data.columns)
+print("validation data \n", val_data.head())
 
-train_data = data[data['Entity'].isin(train_entities)]
-val_data = data[data['Entity'].isin(val_entities)]
+# def train_test_split(data):
+#     size=int(len(data)*0.8)
+#     train_data =data.iloc[0:size] 
+#     val_data = data.iloc[size:]
+#     return train_data, val_data
+
+# entities=list(data['Entity'].unique())
+# train_data=[]
+# val_data=[]
+
+# for entity in entities:
+#     df=data[data['Entity']==entity]
+#     train,val=train_test_split(df)
+#     train_data.append(train)
+#     val_data.append(val)
+
+# train_data=pd.concat(train_data)
+# train_data= pd.DataFrame(train_data)
+# val_data=pd.concat(val_data)
+# val_data= pd.DataFrame(val_data)
+
+# # train_data=train_data.reset_index()
+# print("train data \n", train_data.head())
+# print(train_data.columns)
+# print("validation data \n", val_data.head())
+print(train_data['Entity'].unique())
+print(val_data['Entity'].unique())
 
 # Function to create sequences with entity embeddings
 def create_sequences(data, seq_length):
@@ -72,7 +128,10 @@ def create_sequences(data, seq_length):
     for entity in data['Entity'].unique():
         entity_data = data[data['Entity'] == entity]
         for i in range(len(entity_data) - seq_length):
-            x = entity_data['Value'].values[i:i+seq_length]
+            # 'Year', 'Month', 'Day', 'Day of Week', 'Week of Year', 'Quarter','Value','Value_lag_1', 'Value_lag_12', 'Value_lag_1_ma_4'
+            # fill with column names you are going to use
+            # x = entity_data[['Year','Month','Day of Week', 'Week of Year', 'Quarter','Value','Value_lag_1', 'Value_lag_12', 'Value_lag_1_ma_4']].values[i:i+seq_length]
+            x = entity_data[['Value']].values[i:i+seq_length]
             y = entity_data['Value'].values[i+seq_length]
             e = entity_data['Entity'].values[i:i+seq_length]
             xs.append(x)
@@ -86,18 +145,20 @@ X_train, y_train, e_train = create_sequences(train_data, seq_length)
 X_val, y_val, e_val = create_sequences(val_data, seq_length)
 
 # Convert to PyTorch tensors
-X_train = torch.from_numpy(X_train).float().unsqueeze(-1)
+X_train = torch.from_numpy(X_train).float()
+# X_train = torch.from_numpy(X_train).float().unsqueeze(-1)
 y_train = torch.from_numpy(y_train).float().unsqueeze(-1)
 e_train = torch.from_numpy(e_train).long()
 
-X_val = torch.from_numpy(X_val).float().unsqueeze(-1)
+X_val = torch.from_numpy(X_val).float()
+# X_val = torch.from_numpy(X_val).float().unsqueeze(-1)
 y_val = torch.from_numpy(y_val).float().unsqueeze(-1)
 e_val = torch.from_numpy(e_val).long()
 
 # Create DataLoader
 batch_size = 32
 train_dataset = TensorDataset(X_train, y_train, e_train)
-train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
 val_dataset = TensorDataset(X_val, y_val, e_val)
 val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
@@ -120,12 +181,12 @@ class BiLSTM(nn.Module):
         return predictions
 
 # Hyperparameters
-input_size = 1
+input_size = 1  # put no of inputs 
 hidden_layer_size = 64
 output_size = 1
 dropout_prob = 0.2
 learning_rate = 0.001
-embedding_dim = 5  # Example embedding dimension
+embedding_dim = 5  
 num_entities = len(entities)
 
 # Initialize the model, loss function, and optimizer
@@ -234,24 +295,27 @@ with mlflow.start_run():
         mse = mean_squared_error(actuals, predictions)
         rmse = np.sqrt(mse)
         mape = mean_absolute_percentage_error(actuals, predictions) * 100
-        return mae, mse, rmse, mape
+        r2 = r2_score(actuals, predictions)
+        return mae, mse, rmse, mape, r2
 
-    train_mae, train_mse, train_rmse, train_mape = calculate_metrics(train_actuals, train_predictions)
-    val_mae, val_mse, val_rmse, val_mape = calculate_metrics(val_actuals, val_predictions)
+    train_mae, train_mse, train_rmse, train_mape, train_r2 = calculate_metrics(train_actuals, train_predictions)
+    val_mae, val_mse, val_rmse, val_mape, val_r2 = calculate_metrics(val_actuals, val_predictions)
 
-    print(f'Train MAE: {train_mae:.4f}, MSE: {train_mse:.4f}, RMSE: {train_rmse:.4f}, MAPE: {train_mape:.4f}')
-    print(f'Validation MAE: {val_mae:.4f}, MSE: {val_mse:.4f}, RMSE: {val_rmse:.4f}, MAPE: {val_mape:.4f}')
+    print(f'Train MAE: {train_mae:.4f}, MSE: {train_mse:.4f}, RMSE: {train_rmse:.4f}, MAPE: {train_mape:.4f}, R2: {train_r2:.4f}')
+    print(f'Validation MAE: {val_mae:.4f}, MSE: {val_mse:.4f}, RMSE: {val_rmse:.4f}, MAPE: {val_mape:.4f}, R2: {val_r2:.4f}')
 
     # Log final metrics
     mlflow.log_metric("train_mae", train_mae)
     mlflow.log_metric("train_mse", train_mse)
     mlflow.log_metric("train_rmse", train_rmse)
     mlflow.log_metric("train_mape", train_mape)
+    mlflow.log_metric("train_r2", train_r2)
 
     mlflow.log_metric("val_mae", val_mae)
     mlflow.log_metric("val_mse", val_mse)
     mlflow.log_metric("val_rmse", val_rmse)
     mlflow.log_metric("val_mape", val_mape)
+    mlflow.log_metric("val_r2", val_r2)
 
     plt.figure(figsize=(10, 5))
     plt.plot(train_actuals, label='Train Actuals')
