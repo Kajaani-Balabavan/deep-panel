@@ -33,8 +33,8 @@ mlflow.set_experiment(experiment_name)
 model_name = "Random Effects"
 
 # Load CSV data
-# file_path = r'..\data\processed\Passenger_Traffic_Los_Angeles.csv'
-# dataset = 'Passenger_Traffic_Los_Angeles'
+file_path = r'..\data\processed\Passenger_Traffic_Los_Angeles.csv'
+dataset = 'Passenger_Traffic_Los_Angeles'
 
 # Environmental Domain
 # file_path = r'..\data\processed\average-monthly-surface-temperature.csv'
@@ -57,15 +57,15 @@ model_name = "Random Effects"
 # dataset = 'Covid Recovered'
 
 # Africa GDP
-file_path = r'..\data\Base_Paper\African GDP\Final_African_GDP.csv'
-dataset = 'GDP Africa'
+# file_path = r'..\data\Base_Paper\African GDP\Final_African_GDP.csv'
+# dataset = 'GDP Africa'
 
 data = pd.read_csv(file_path)
 
 # Rename columns
-# data.columns = ['Entity','Date', 'Value']
+data.columns = ['Entity','Date', 'Value']
 # Affrica GDP
-data.columns = ['Entity','Date', 'Value','GNI','PPP']
+# data.columns = ['Entity','Date', 'Value','GNI','PPP']
 print(data.head())
 
 # Convert 'Date' to datetime and set as index
@@ -117,9 +117,9 @@ with mlflow.start_run():
     mlflow.log_artifact('actual_values_per_entity.png')
 
 # Train Random Effects Model
-# formula = 'Value ~ Year + Month + Q("Day of Week") + Q("Week of Year") + Quarter + Valuelag1 + Valuelag12 + Valuelag1ma4'
+formula = 'Value ~ Year + Month + Q("Day of Week") + Q("Week of Year") + Quarter + Valuelag1 + Valuelag12 + Valuelag1ma4'
 # Affrica GDP
-formula = 'Value ~Year + Valuelag1 + GNI+PPP'
+# formula = 'Value ~Year + Valuelag1 + GNI+PPP'
 
 model = smf.mixedlm(formula, train_data, groups=train_data["Entity"]).fit()
 

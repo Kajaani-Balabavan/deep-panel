@@ -33,8 +33,8 @@ mlflow.set_experiment(experiment_name)
 model_name = "Pooled OLS"
 
 # Load CSV data
-# file_path = r'..\data\processed\Passenger_Traffic_Los_Angeles.csv'
-# dataset = 'Passenger_Traffic_Los_Angeles'
+file_path = r'..\data\processed\Passenger_Traffic_Los_Angeles.csv'
+dataset = 'Passenger_Traffic_Los_Angeles'
 
 # Environmental Domain
 # file_path = r'..\data\processed\average-monthly-surface-temperature.csv'
@@ -49,8 +49,8 @@ model_name = "Pooled OLS"
 # dataset = 'Covid Deaths'
 
 # Covid_confirmed
-file_path = r'..\data\Base_Paper\Predictions for COVID-19 with deep learning models of LSTM, GRU, and Bi-LSTM\confirmed_final.csv'
-dataset = 'Covid Confirmed'
+# file_path = r'..\data\Base_Paper\Predictions for COVID-19 with deep learning models of LSTM, GRU, and Bi-LSTM\confirmed_final.csv'
+# dataset = 'Covid Confirmed'
 
 # Covid_recovered
 # file_path = r'..\data\Base_Paper\Predictions for COVID-19 with deep learning models of LSTM, GRU, and Bi-LSTM\recovered_final.csv'
